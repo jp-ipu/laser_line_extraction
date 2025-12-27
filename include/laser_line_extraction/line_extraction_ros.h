@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+#include <rcl_interfaces/msg/set_parameters_result.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <geometry_msgs/msg/point.hpp>
@@ -32,6 +33,7 @@ private:
   rclcpp::Publisher<laser_line_extraction::msg::LineSegmentList>::SharedPtr line_publisher_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 
   // Parameters
   std::string frame_id_;
@@ -46,6 +48,9 @@ private:
   // Members
   void declareParameters();
   void loadParameters();
+  void updateAlgorithmParameters();
+  rcl_interfaces::msg::SetParametersResult onParameterChange(
+    const std::vector<rclcpp::Parameter> & parameters);
   void run();
   void populateLineSegListMsg(const std::vector<Line>&, laser_line_extraction::msg::LineSegmentList&);
   void populateMarkerMsg(const std::vector<Line>&, visualization_msgs::msg::Marker&);

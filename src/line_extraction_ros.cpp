@@ -39,6 +39,10 @@ LineExtractionROS::LineExtractionROS(const rclcpp::NodeOptions & options)
     std::chrono::duration_cast<std::chrono::nanoseconds>(period),
     std::bind(&LineExtractionROS::run, this));
 
+  // Register parameter change callback for dynamic updates
+  param_callback_handle_ = this->add_on_set_parameters_callback(
+    std::bind(&LineExtractionROS::onParameterChange, this, std::placeholders::_1));
+
   RCLCPP_INFO(this->get_logger(), "Line extraction node started");
 }
 
@@ -138,6 +142,70 @@ void LineExtractionROS::loadParameters()
   RCLCPP_DEBUG(this->get_logger(), "min_line_points: %d", min_line_points);
 
   RCLCPP_DEBUG(this->get_logger(), "*************************************");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Update algorithm parameters (called on dynamic parameter change)
+///////////////////////////////////////////////////////////////////////////////
+void LineExtractionROS::updateAlgorithmParameters()
+{
+  double bearing_std_dev = this->get_parameter("bearing_std_dev").as_double();
+  line_extraction_.setBearingVariance(bearing_std_dev * bearing_std_dev);
+
+  double range_std_dev = this->get_parameter("range_std_dev").as_double();
+  line_extraction_.setRangeVariance(range_std_dev * range_std_dev);
+
+  line_extraction_.setLeastSqAngleThresh(
+    this->get_parameter("least_sq_angle_thresh").as_double());
+  line_extraction_.setLeastSqRadiusThresh(
+    this->get_parameter("least_sq_radius_thresh").as_double());
+  line_extraction_.setMaxLineGap(this->get_parameter("max_line_gap").as_double());
+  line_extraction_.setMinLineLength(this->get_parameter("min_line_length").as_double());
+  line_extraction_.setMinRange(this->get_parameter("min_range").as_double());
+  line_extraction_.setMaxRange(this->get_parameter("max_range").as_double());
+  line_extraction_.setMinSplitDist(this->get_parameter("min_split_dist").as_double());
+  line_extraction_.setOutlierDist(this->get_parameter("outlier_dist").as_double());
+  line_extraction_.setMinLinePoints(
+    static_cast<unsigned int>(this->get_parameter("min_line_points").as_int()));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Dynamic parameter change callback
+///////////////////////////////////////////////////////////////////////////////
+rcl_interfaces::msg::SetParametersResult LineExtractionROS::onParameterChange(
+    const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  for (const auto & param : parameters) {
+    const std::string & name = param.get_name();
+
+    // Parameters that can be updated dynamically
+    if (name == "frame_id") {
+      frame_id_ = param.as_string();
+      RCLCPP_INFO(this->get_logger(), "Updated frame_id to: %s", frame_id_.c_str());
+    }
+    else if (name == "bearing_std_dev" || name == "range_std_dev" ||
+             name == "least_sq_angle_thresh" || name == "least_sq_radius_thresh" ||
+             name == "max_line_gap" || name == "min_line_length" ||
+             name == "min_range" || name == "max_range" ||
+             name == "min_split_dist" || name == "outlier_dist" ||
+             name == "min_line_points") {
+      // These will be applied after the loop
+      RCLCPP_INFO(this->get_logger(), "Updated parameter: %s", name.c_str());
+    }
+    // Parameters that require restart to take effect
+    else if (name == "scan_topic" || name == "frequency" || name == "publish_markers") {
+      RCLCPP_WARN(this->get_logger(),
+        "Parameter '%s' change requires node restart to take effect", name.c_str());
+    }
+  }
+
+  // Update algorithm parameters after processing all changes
+  updateAlgorithmParameters();
+
+  return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
