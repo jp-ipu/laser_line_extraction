@@ -1,17 +1,35 @@
 # Laser Line Extraction
-Laser Line Extraction is a [Robot Operating System (ROS)](http://www.ros.org) package that extracts line segments form [LaserScan](http://docs.ros.org/api/sensor_msgs/html/msg/LaserScan.html) messages. Created by [Marc Gallant](http://marcgallant.ca), originally for use in the [Mining Systems Laboratory](http://msl.engineering.queensu.ca). Here is what the Laser Line Extraction package looks like in action:
+Laser Line Extraction is a [Robot Operating System 2 (ROS2)](http://www.ros.org) package that extracts line segments from [LaserScan](https://docs.ros2.org/latest/api/sensor_msgs/msg/LaserScan.html) messages. Originally created by [Marc Gallant](http://marcgallant.ca) for use in the [Mining Systems Laboratory](http://msl.engineering.queensu.ca). Ported to ROS2 Jazzy. Here is what the Laser Line Extraction package looks like in action:
 
 ![Laser line extraction](images/line_extraction.gif)
 
-In the above image, the white dots are points in a LaserScan message, and the red lines are what is extracted by Laser Line Extraction. This data was collected by driving a robot through Beamish-Munro Hall at Queen's University. A SICK LMS111 laser scanner was mounted to the robot. The extraction algorithm is very configurable; the above image used the parameters configured in the `example.launch` launch file.
+In the above image, the white dots are points in a LaserScan message, and the red lines are what is extracted by Laser Line Extraction. This data was collected by driving a robot through Beamish-Munro Hall at Queen's University. A SICK LMS111 laser scanner was mounted to the robot. The extraction algorithm is very configurable; the above image used the parameters configured in the `example.launch.py` launch file.
 
 After applying some filters to remove outlying points, Laser Line Extraction implements a split-and-merge algorithm to determine which points belong to lines. Next, it implements the weighted line fitting algorithm by Pfister *et al.* [1] to find the best fit lines and their respective covariance matrices.
 
-## Usage
-I recommend making a copy of `example.launch` in the launch directory and configuring the parameters until you reach a desirable outcome. The parameters in `example.launch` are a good starting point. Then simply use roslaunch, e.g.,
+## Requirements
+- ROS2 Jazzy (or compatible distribution)
+- Eigen3
 
+## Building
+```bash
+cd <your_ros2_ws>/src
+git clone <this_repository>
+cd ..
+colcon build --packages-select laser_line_extraction
+source install/setup.bash
 ```
-roslaunch laser_line_extraction example.launch
+
+## Usage
+I recommend making a copy of `example.launch.py` in the launch directory and configuring the parameters until you reach a desirable outcome. The parameters in `example.launch.py` are a good starting point. Then simply use ros2 launch, e.g.,
+
+```bash
+ros2 launch laser_line_extraction example.launch.py
+```
+
+You can also override parameters from the command line:
+```bash
+ros2 launch laser_line_extraction example.launch.py scan_topic:=/my_scan publish_markers:=true
 ```
 
 ## Messages
@@ -81,4 +99,4 @@ The parameters are listed in alphabetical order.
 	- The LaserScan topic.
 
 ## References
-[1] S. T. Pfister, S. I. Roumeliotis, and J. W. Burdick, "Weighted line fitting algorithms for mobile robot map building and efficient data representation" in Proc. IEEE Intl. Conf. on Robotics and Automation (ICRA), Taipei, Taiwan, 14-19 Sept., 2003. 
+[1] S. T. Pfister, S. I. Roumeliotis, and J. W. Burdick, "Weighted line fitting algorithms for mobile robot map building and efficient data representation" in Proc. IEEE Intl. Conf. on Robotics and Automation (ICRA), Taipei, Taiwan, 14-19 Sept., 2003.

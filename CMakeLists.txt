@@ -1,53 +1,101 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(laser_line_extraction)
 
-find_package(catkin REQUIRED COMPONENTS
-  cmake_modules
-  geometry_msgs
-  message_generation
-  roscpp
-  rospy
-  sensor_msgs
-  visualization_msgs
-)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
+# Find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-add_message_files(
-  FILES
-  LineSegment.msg
-  LineSegmentList.msg
+# Generate messages
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/LineSegment.msg"
+  "msg/LineSegmentList.msg"
+  DEPENDENCIES std_msgs
 )
 
-generate_messages(
-  DEPENDENCIES
+# Create library for line extraction
+add_library(line_extraction_lib
+  src/line.cpp
+  src/line_extraction.cpp
+)
+target_include_directories(line_extraction_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+target_compile_features(line_extraction_lib PUBLIC cxx_std_17)
+
+# Create library for ROS wrapper
+add_library(line_extraction_ros_lib
+  src/line_extraction_ros.cpp
+)
+target_include_directories(line_extraction_ros_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${EIGEN3_INCLUDE_DIRS}
+)
+target_compile_features(line_extraction_ros_lib PUBLIC cxx_std_17)
+target_link_libraries(line_extraction_ros_lib PUBLIC line_extraction_lib)
+ament_target_dependencies(line_extraction_ros_lib PUBLIC
+  rclcpp
   sensor_msgs
+  geometry_msgs
+  visualization_msgs
 )
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} rosidl_typesupport_cpp)
+target_link_libraries(line_extraction_ros_lib PUBLIC ${cpp_typesupport_target})
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES line line_extraction line_extraction_ros
-  CATKIN_DEPENDS geometry_msgs message_runtime roscpp sensor_msgs visualization_msgs
-)
-
-add_library(line src/line.cpp)
-target_link_libraries(line ${catkin_LIBRARIES})
-
-add_library(line_extraction src/line_extraction.cpp)
-target_link_libraries(line_extraction ${catkin_LIBRARIES})
-
-add_library(line_extraction_ros src/line_extraction_ros.cpp)
-target_link_libraries(line_extraction_ros line line_extraction ${catkin_LIBRARIES})
-add_dependencies(line_extraction_ros laser_line_extraction_generate_messages_cpp)
-
+# Create executable node
 add_executable(line_extraction_node src/line_extraction_node.cpp)
-target_link_libraries(line_extraction_node line_extraction_ros ${catkin_LIBRARIES})
+target_link_libraries(line_extraction_node PRIVATE line_extraction_ros_lib)
+ament_target_dependencies(line_extraction_node PUBLIC rclcpp)
 
-include_directories(include ${catkin_INCLUDE_DIRS})
-include_directories(include ${EIGEN3_INCLUDE_DIRS})
+# Install targets
+install(TARGETS
+  line_extraction_lib
+  line_extraction_ros_lib
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_laser_line_extraction.cpp)
+install(TARGETS line_extraction_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
-install(TARGETS line_extraction_node RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-install(TARGETS line_extraction_ros line_extraction line ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION} LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION} RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
-install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+install(DIRECTORY include/
+  DESTINATION include
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
+# Export dependencies
+ament_export_include_directories(include)
+ament_export_libraries(line_extraction_lib line_extraction_ros_lib)
+ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  visualization_msgs
+  Eigen3
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()

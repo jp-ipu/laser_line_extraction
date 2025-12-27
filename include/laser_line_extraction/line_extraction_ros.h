@@ -1,50 +1,56 @@
 #ifndef LINE_EXTRACTION_ROS_H
 #define LINE_EXTRACTION_ROS_H
 
-#include <vector>
+#include <memory>
 #include <string>
-#include <ros/ros.h>
-#include <sensor_msgs/LaserScan.h>
-#include <visualization_msgs/Marker.h>
-#include <geometry_msgs/Point.h>
-#include "laser_line_extraction/LineSegment.h"
-#include "laser_line_extraction/LineSegmentList.h"
+#include <vector>
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <geometry_msgs/msg/point.hpp>
+
+#include "laser_line_extraction/msg/line_segment.hpp"
+#include "laser_line_extraction/msg/line_segment_list.hpp"
 #include "laser_line_extraction/line_extraction.h"
 #include "laser_line_extraction/line.h"
 
 namespace line_extraction
 {
 
-class LineExtractionROS
+class LineExtractionROS : public rclcpp::Node
 {
 
 public:
   // Constructor / destructor
-  LineExtractionROS(ros::NodeHandle&, ros::NodeHandle&);
+  explicit LineExtractionROS(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~LineExtractionROS();
-  // Running
-  void run();
 
 private:
   // ROS
-  ros::NodeHandle nh_;
-  ros::NodeHandle nh_local_;
-  ros::Subscriber scan_subscriber_;
-  ros::Publisher line_publisher_;
-  ros::Publisher marker_publisher_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_subscriber_;
+  rclcpp::Publisher<laser_line_extraction::msg::LineSegmentList>::SharedPtr line_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
   // Parameters
   std::string frame_id_;
   std::string scan_topic_;
   bool pub_markers_;
+  double frequency_;
+
   // Line extraction
   LineExtraction line_extraction_;
   bool data_cached_; // true after first scan used to cache data
+
   // Members
+  void declareParameters();
   void loadParameters();
-  void populateLineSegListMsg(const std::vector<Line>&, laser_line_extraction::LineSegmentList&);
-  void populateMarkerMsg(const std::vector<Line>&, visualization_msgs::Marker&);
-  void cacheData(const sensor_msgs::LaserScan::ConstPtr&);
-  void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr&);
+  void run();
+  void populateLineSegListMsg(const std::vector<Line>&, laser_line_extraction::msg::LineSegmentList&);
+  void populateMarkerMsg(const std::vector<Line>&, visualization_msgs::msg::Marker&);
+  void cacheData(const sensor_msgs::msg::LaserScan::SharedPtr);
+  void laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr);
 };
 
 } // namespace line_extraction

@@ -1,12 +1,14 @@
 #include "laser_line_extraction/line.h"
 
+#include <array>
+
 namespace line_extraction
 {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constructor / destructor
 ///////////////////////////////////////////////////////////////////////////////
-Line::Line(const CachedData &c_data, const RangeData &r_data, const Params &params, 
+Line::Line(const CachedData &c_data, const RangeData &r_data, const Params &params,
            std::vector<unsigned int> indices):
   c_data_(c_data),
   r_data_(r_data),
@@ -15,8 +17,8 @@ Line::Line(const CachedData &c_data, const RangeData &r_data, const Params &para
 {
 }
 
-Line::Line(double angle, double radius, const boost::array<double, 4> &covariance,
-       const boost::array<double, 2> &start, const boost::array<double, 2> &end,
+Line::Line(double angle, double radius, const std::array<double, 4> &covariance,
+       const std::array<double, 2> &start, const std::array<double, 2> &end,
        const std::vector<unsigned int> &indices):
   angle_(angle),
   radius_(radius),
@@ -39,12 +41,12 @@ double Line::getAngle() const
   return angle_;
 }
 
-const boost::array<double, 4>& Line::getCovariance() const
+const std::array<double, 4>& Line::getCovariance() const
 {
   return covariance_;
 }
 
-const boost::array<double, 2>& Line::getEnd() const
+const std::array<double, 2>& Line::getEnd() const
 {
   return end_;
 }
@@ -59,7 +61,7 @@ double Line::getRadius() const
   return radius_;
 }
 
-const boost::array<double, 2>& Line::getStart() const
+const std::array<double, 2>& Line::getStart() const
 {
   return start_;
 }
@@ -81,7 +83,7 @@ double Line::length() const
 
 unsigned int Line::numPoints() const
 {
-  return indices_.size();  
+  return indices_.size();
 }
 
 void Line::projectEndpoints()
@@ -103,10 +105,10 @@ void Line::projectEndpoints()
 ///////////////////////////////////////////////////////////////////////////////
 void Line::endpointFit()
 {
-  start_[0] = r_data_.xs[indices_[0]]; 
-  start_[1] = r_data_.ys[indices_[0]]; 
-  end_[0] = r_data_.xs[indices_.back()]; 
-  end_[1] = r_data_.ys[indices_.back()]; 
+  start_[0] = r_data_.xs[indices_[0]];
+  start_[1] = r_data_.ys[indices_[0]];
+  end_[0] = r_data_.xs[indices_.back()];
+  end_[1] = r_data_.ys[indices_.back()];
   angleFromEndpoints();
   radiusFromEndpoints();
 }
@@ -144,7 +146,7 @@ void Line::leastSqFit()
   double prev_radius = 0.0;
   double prev_angle = 0.0;
   while (fabs(radius_ - prev_radius) > params_.least_sq_radius_thresh ||
-         fabs(angle_ - prev_angle) > params_.least_sq_angle_thresh) 
+         fabs(angle_ - prev_angle) > params_.least_sq_angle_thresh)
   {
     prev_radius = radius_;
     prev_angle = angle_;
@@ -173,12 +175,12 @@ double Line::angleIncrement()
   const std::vector<double> &c = p_params_.c;
   const std::vector<double> &s = p_params_.s;
 
-  double numerator = 0; 
+  double numerator = 0;
   double denominator = 0;
   for (std::size_t i = 0; i < a.size(); ++i)
   {
     numerator += (b[i] * ap[i] - a[i] * bp[i]) / pow(b[i], 2);
-    denominator += ((app[i] * b[i] - a[i] * bpp[i]) * b[i] - 
+    denominator += ((app[i] * b[i] - a[i] * bpp[i]) * b[i] -
                     2 * (ap[i] * b[i] - a[i] * bp[i]) * bp[i]) / pow(b[i], 3);
   }
   return -(numerator/denominator);
@@ -224,10 +226,10 @@ void Line::calcPointCovariances()
     phi = c_data_.bearings[*cit]; // bearing
     var_r = params_.range_var; // range variance
     var_phi = params_.bearing_var; // bearing variance
-    boost::array<double, 4> Q; 
+    std::array<double, 4> Q;
     Q[0] = pow(r, 2) * var_phi * pow(sin(phi), 2) + var_r * pow(cos(phi), 2);
     Q[1] = -pow(r, 2) * var_phi * sin(2 * phi) / 2.0 + var_r * sin(2 * phi) / 2.0;
-    Q[2] = Q[1]; 
+    Q[2] = Q[1];
     Q[3] = pow(r, 2) * var_phi * pow(cos(phi), 2) + var_r * pow(sin(phi), 2);
     point_covs_.push_back(Q);
   }
@@ -276,7 +278,7 @@ void Line::calcPointScalarCovariances()
   point_scalar_vars_.clear();
   double P;
   double inverse_P_sum = 0;
-  for (std::vector<boost::array<double, 4> >::const_iterator cit = point_covs_.begin();
+  for (std::vector<std::array<double, 4> >::const_iterator cit = point_covs_.begin();
        cit != point_covs_.end(); ++cit)
   {
     P = (*cit)[0] * pow(cos(angle_), 2) + 2 * (*cit)[1] * sin(angle_) * cos(angle_) +
@@ -297,7 +299,7 @@ void Line::radiusFromLeastSq()
     phi = c_data_.bearings[*cit]; // bearing
     radius_ += r * cos(angle_ - phi) / point_scalar_vars_[cit - indices_.begin()]; // cit to index
   }
-  
+
   radius_ *= p_rr_;
 }
 
